@@ -1,0 +1,33 @@
+{
+  "name": "teraslice-job-settings-controller",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Application to monitor the size of an elasticsearch index",
+  "main": "service.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc --build",
+    "build:watch": "tsc --build --watch",
+    "start": "node service.js"
+  },
+  "dependencies": {
+    "@terascope/job-components": "~1.10.1",
+    "terafoundation": "~1.12.2",
+    "ts-pegjs": "~4.2.1"
+  },
+  "devDependencies": {
+    "@terascope/types": "~1.4.1",
+    "@types/node": "~22.15.17",
+    "typescript": "~5.8.3"
+  },
+  "packageManager": "yarn@4.5.3",
+  "engines": {
+    "node": ">=20.11.1",
+    "yarn": ">=1.22.22"
+  },
+  "dependenciesMeta": {
+    "ts-pegjs@4.2.1": {
+      "unplugged": true
+    }
+  }
+}
