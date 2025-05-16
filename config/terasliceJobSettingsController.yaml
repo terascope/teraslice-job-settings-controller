@@ -1,0 +1,25 @@
+terafoundation:
+  connectors:
+    elasticsearch-next:
+      es7:
+        node:
+          - "http://es7:9200"
+      os2:
+        node:
+          - "http://os2:9200"
+  environment: development
+  log_level: debug
+  workers: 1
+terasliceJobSettingsController:
+  connections:
+    store:
+      connector: es7
+      index: percent-to-keep
+      document_id: noaa-2025-01-sample-baseline
+    sample:
+      connector: os2
+      index: noaa-2025-01-sample-baseline
+  window_ms: 10000
+  target_rate: 0.75
+  initial_percent_kept: 75
+  pid_constants: [0.25, 0.01, 0.1]
