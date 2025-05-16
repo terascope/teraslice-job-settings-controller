@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "teraslice-job-settings-controller.fullname" . }}
+  labels:
+    role: master
+    {{- include "teraslice-job-settings-controller.configmapLabels" . | nindent 4 }}
+data:
+  terasliceJobSettingsController.yaml: |
+  {{- with .Values.terafoundation }}
+    terafoundation:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+
+  {{- with .Values.stats }}
+    stats:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  
+  {{- with .Values.terasliceJobSettingsController }}
+    terasliceJobSettingsController:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
