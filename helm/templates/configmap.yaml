@@ -12,11 +12,6 @@ data:
     terafoundation:
       {{- toYaml . | nindent 6 }}
   {{- end }}
-
-  {{- with .Values.stats }}
-    stats:
-      {{- toYaml . | nindent 6 }}
-  {{- end }}
   
   {{- with .Values.terasliceJobSettingsController }}
     terasliceJobSettingsController:

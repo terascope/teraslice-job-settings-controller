@@ -23,19 +23,37 @@ image:
 #     - elasticsearch: error
 #   logging_connection: es-util
 
-terafoundation: {}
+terafoundation: 
+    connectors:
+      elasticsearch-next:
+        es7:
+          node:
+            - "http://elasticsearch7-master:9200"
+        os2:
+          node:
+            - "http://opensearch2:9200"
     # The terafoundation section of the config file.
 
-terasliceJobSettingsController: {}
+terasliceJobSettingsController: 
+    connections:
+      store:
+        connector: es7
+        index: percent-to-keep
+        document_id: noaa-2025-01-sample-v3
+      sample:
+        connector: os2
+        index: noaa-2025-01-sample-v3
+    window_ms: 10000
+    target_rate: 0.1
+    initial_percent_kept: 75
+    pid_constants: [0.25, 0.01, 0.1]
     # The controller section of the config file.
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-env: 
-  - name: TERAFOUNDATION_CONFIG
-    value: /app/data/terasliceJobSettingsController.yaml
+env: {}
 
 podAnnotations: {}
 podLabels: {}
@@ -75,10 +93,6 @@ resources: {}
 
 # Additional volumes on the output Deployment definition.
 extraVolumes: 
-  - name: data
-    hostPath:
-      path: /data
-      type: Directory
 # - name: foo
 #   secret:
 #     secretName: mysecret
@@ -86,8 +100,6 @@ extraVolumes:
 
 # Additional volumeMounts on the output Deployment definition.
 extraVolumeMounts: 
-  - name: data
-    mountPath: /app/data
 # - name: foo
 #   mountPath: "/etc/foo"
 #   readOnly: true

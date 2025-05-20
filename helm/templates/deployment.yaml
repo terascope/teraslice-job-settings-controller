@@ -51,6 +51,8 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /app/config
+            - name: controller-logs
+              mountPath: /app/logs
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -61,6 +63,10 @@ spec:
             items:
               - key: terasliceJobSettingsController.yaml
                 path: terasliceJobSettingsController.yaml
+        - name: logs
+          hostpath:
+            path: /controller-logs
+            type: Directory 
       {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}
