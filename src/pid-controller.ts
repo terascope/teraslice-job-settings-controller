@@ -35,16 +35,24 @@ export default class PIDController {
      * @returns 
      */
     update(error: number): number {
+        console.log('@@@@ this.lastError: ', this.lastError);
         const derivative = error - this.lastError;
+        console.log('@@@@ derivative: ', derivative);
         const tempIntegral = this.integral + error;
+        console.log('@@@@ tempIntegral: ', tempIntegral);
+
         const unclampedOutput = this.kp * error + this.ki * tempIntegral + this.kd * derivative;
+        console.log('@@@@ unclampedOutput: ', unclampedOutput);
 
         // clamp the output
         const output = Math.max(this.outputMin, Math.min(this.outputMax, unclampedOutput));
+        console.log('@@@@ output: ', output);
 
         // check if output is saturated and error is not improving
         const outputSaturatedHigh = output === this.outputMax && error > 0;
         const outputSaturatedLow = output === this.outputMin && error < 0;
+        console.log('@@@@ outputSaturatedHigh: ', outputSaturatedHigh);
+        console.log('@@@@ outputSaturatedLow: ', outputSaturatedLow);
 
         // only update integral if output is not saturated
         if (!outputSaturatedHigh && !outputSaturatedLow) {
@@ -52,8 +60,6 @@ export default class PIDController {
         }
         this.lastError = error;
         console.log('@@@@ this.integral: ', this.integral);
-        console.log('@@@@ derivative: ', derivative);
-        console.log('@@@@ this.lastError: ', this.lastError);
 
         return output;
     }

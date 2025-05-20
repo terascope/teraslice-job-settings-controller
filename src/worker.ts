@@ -16,19 +16,24 @@ interface Client {
 export async function worker(context: TF.Context<Config>) {
     const { logger } = context;
     const config = context.sysconfig.terasliceJobSettingsController;
+    console.log('@@@@ config: ', config);
 
     const TARGET_RATE_BYTES_PER_SEC = config.target_rate * 1024 * 1024;
+    console.log('@@@@ TARGET_RATE_BYTES_PER_SEC: ', TARGET_RATE_BYTES_PER_SEC);
     const TARGET_BYTES_PER_WINDOW = TARGET_RATE_BYTES_PER_SEC
     * (config.window_ms / 1000);
-    const MIN = 0;
-    const MAX = 1;
+    console.log('@@@@ TARGET_BYTES_PER_WINDOW: ', TARGET_BYTES_PER_WINDOW);
+    const PERCENT_MIN = 0;
+    const PERCENT_MAX = 1;
+    const ADJUSTMENT_MIN = -0.5;
+    const ADJUSTMENT_MAX = .5;
 
     let indexBytes = 0;
     let bytesSinceLastRead = 0;
     let retrievalFailed: boolean;
     let retrievalErrorCount = 0;
     let decimalPercentage = config.initial_percent_kept / 100;
-    const pid = new PIDController(MIN, MAX, ...config.pid_constants);
+    const pid = new PIDController(ADJUSTMENT_MIN, ADJUSTMENT_MAX, ...config.pid_constants);
     let esClientSample: Client;
     let esClientStore: Client;
 
@@ -100,6 +105,8 @@ export async function worker(context: TF.Context<Config>) {
     function _updatePercentKept() {
         const { document_id: id } = config.connections.store;
         const windowsSinceLastUpdate = retrievalErrorCount + 1
+        console.log('@@@@ windowsSinceLastUpdate: ', windowsSinceLastUpdate);
+
         // fixme": instead pass in time since last update and have pid use dt in equation
         const errorBytes = TARGET_BYTES_PER_WINDOW - (bytesSinceLastRead / windowsSinceLastUpdate); 
         console.log('@@@@ errorBytes: ', errorBytes);
@@ -112,8 +119,11 @@ export async function worker(context: TF.Context<Config>) {
         logData(decimalPercentage, errorPct, bytesSinceLastRead);
 
         decimalPercentage += adjustment;
+        console.log('@@@@ decimalPercentage: ', decimalPercentage);
+
         // clamp percentKept between MIN and MAX
-        decimalPercentage = Math.max(MIN, Math.min(MAX, decimalPercentage));
+        decimalPercentage = Math.max(PERCENT_MIN, Math.min(PERCENT_MAX, decimalPercentage));
+        console.log('@@@@ decimalPercentage Clamped: ', decimalPercentage);
         const percent = decimalPercentage * 100;
 
         try{
