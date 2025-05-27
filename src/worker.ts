@@ -16,13 +16,13 @@ interface Client {
 export async function worker(context: TF.Context<Config>) {
     const { logger } = context;
     const config = context.sysconfig.terasliceJobSettingsController;
-    console.log('@@@@ config: ', config);
+    logger.info('Teraslice Job Settings Controller Config:\n', config);
 
     const TARGET_RATE_BYTES_PER_SEC = config.target_rate * 1024 * 1024;
-    console.log('@@@@ TARGET_RATE_BYTES_PER_SEC: ', TARGET_RATE_BYTES_PER_SEC);
+    logger.debug('TARGET_RATE_BYTES_PER_SEC: ', TARGET_RATE_BYTES_PER_SEC);
     const TARGET_BYTES_PER_WINDOW = TARGET_RATE_BYTES_PER_SEC
     * (config.window_ms / 1000);
-    console.log('@@@@ TARGET_BYTES_PER_WINDOW: ', TARGET_BYTES_PER_WINDOW);
+    logger.info('TARGET_BYTES_PER_WINDOW: ', TARGET_BYTES_PER_WINDOW);
     const PERCENT_MIN = 0;
     const PERCENT_MAX = 1;
     const ADJUSTMENT_MIN = -0.5;
@@ -33,7 +33,7 @@ export async function worker(context: TF.Context<Config>) {
     let retrievalFailed: boolean;
     let retrievalErrorCount = 0;
     let decimalPercentage = config.initial_percent_kept / 100;
-    const pid = new PIDController(ADJUSTMENT_MIN, ADJUSTMENT_MAX, ...config.pid_constants);
+    const pid = new PIDController(logger, ADJUSTMENT_MIN, ADJUSTMENT_MAX, ...config.pid_constants);
     let esClientSample: Client;
     let esClientStore: Client;
 
@@ -45,14 +45,13 @@ export async function worker(context: TF.Context<Config>) {
     try {
         fs.writeFileSync(logFilePath, '')
     } catch (err) {
-        console.log('@@@@ writeFileSync err: ', err);
+        logger.error('writeFileSync err: ', err);
     }
     try {
         logStream = fs.createWriteStream(logFilePath);
         logStream.write('timestamp,percentKept,errorPct,bytesThisWindow\n');
     } catch (err) {
-        console.log('@@@@ logStream err: ', err);
-        throw new Error(`Failed to create log stream. Err: ${err}`);
+        logger.error(`Failed to create log stream. Err: ${err}`);
     }
 
     esClientSample = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: config.connections.sample.connector })).client;
@@ -61,13 +60,12 @@ export async function worker(context: TF.Context<Config>) {
     indexBytes = await getIndexSize();
 
     const updatePercentKeptInterval: NodeJS.Timeout = setInterval(async () => {
-        console.log('@@@@ indexBytes before: ', indexBytes);
+        logger.debug('indexBytes previous interval: ', indexBytes);
         const newIndexBytes = await getIndexSize();
-        console.log('@@@@ newIndexBytes: ', newIndexBytes);
+        logger.debug('newIndexBytes: ', newIndexBytes);
         bytesSinceLastRead = newIndexBytes - indexBytes;
-        console.log('@@@@ bytesSinceLastRead: ', bytesSinceLastRead);
+        logger.debug('bytesSinceLastRead: ', bytesSinceLastRead);
         indexBytes = newIndexBytes;
-        console.log('@@@@ indexBytes after: ', indexBytes);
 
         if (retrievalFailed) {
             retrievalErrorCount++;
@@ -85,15 +83,12 @@ export async function worker(context: TF.Context<Config>) {
                 bytes: 'b',
                 format: 'json'
             });
-            console.log('@@@@ indexInfo: ', indexInfo);
             let size: number;
             const sizeStr: string | undefined = indexInfo[0]['store.size'];
             if (!sizeStr) {
                 throw new Error('store.size is undefined');
             }
             size = Number(sizeStr)
-            console.log('@@@@ size: ', size);
-
             return size;
         } catch (err) {
             retrievalFailed = true;
@@ -105,25 +100,24 @@ export async function worker(context: TF.Context<Config>) {
     function _updatePercentKept() {
         const { document_id: id } = config.connections.store;
         const windowsSinceLastUpdate = retrievalErrorCount + 1
-        console.log('@@@@ windowsSinceLastUpdate: ', windowsSinceLastUpdate);
+        logger.debug('windowsSinceLastUpdate: ', windowsSinceLastUpdate);
 
-        // fixme": instead pass in time since last update and have pid use dt in equation
         const errorBytes = TARGET_BYTES_PER_WINDOW - (bytesSinceLastRead / windowsSinceLastUpdate); 
-        console.log('@@@@ errorBytes: ', errorBytes);
+        logger.debug('errorBytes: ', errorBytes);
 
         const errorPct = errorBytes / TARGET_BYTES_PER_WINDOW;
-        console.log('@@@@ errorPct: ', errorPct);
+        logger.debug('errorPct: ', errorPct);
 
         const adjustment = pid.update(errorPct);
-        console.log('@@@@ adjustment: ', adjustment);
+        logger.debug('adjustment: ', adjustment);
         logData(decimalPercentage, errorPct, bytesSinceLastRead);
 
         decimalPercentage += adjustment;
-        console.log('@@@@ decimalPercentage: ', decimalPercentage);
+        logger.debug('decimalPercentage: ', decimalPercentage);
 
         // clamp percentKept between MIN and MAX
         decimalPercentage = Math.max(PERCENT_MIN, Math.min(PERCENT_MAX, decimalPercentage));
-        console.log('@@@@ decimalPercentage Clamped: ', decimalPercentage);
+        logger.debug('decimalPercentage Clamped: ', decimalPercentage);
         const percent = decimalPercentage * 100;
 
         try{
@@ -143,13 +137,11 @@ export async function worker(context: TF.Context<Config>) {
             logger.warn(`Error updating document with id ${id}: ${err}`); // fixme better message
         }
 
-        console.log(`@@@@ [PID] Target: ${Math.round(TARGET_BYTES_PER_WINDOW)} bytes, Actual: ${bytesSinceLastRead} bytes, Sample Rate: ${percent.toFixed(3)} percent`);
+        logger.info(`[PID] Target: ${Math.round(TARGET_BYTES_PER_WINDOW)} bytes, Actual: ${bytesSinceLastRead} bytes, Sample Rate: ${percent.toFixed(3)} percent`);
     }
 
     function logData(percentage: number, errorPct: number, bytes: number) {
         const timestamp = new Date().toISOString();
-        console.log('@@@@ logData timestamp: ', timestamp);
-
         logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPct.toFixed(4)},${bytes}\n`);
     }
 

@@ -1,4 +1,7 @@
+import { Logger } from "@terascope/types";
+
 export default class PIDController {
+    logger: Logger;
     private outputMin: number;
     private outputMax: number;
     private kp: number;
@@ -18,7 +21,8 @@ export default class PIDController {
      * @param {number} ki integral constant
      * @param {number} kd derivative constant
     */
-    constructor(min: number, max: number, kp: number, ki: number, kd: number) {
+    constructor(logger: Logger, min: number, max: number, kp: number, ki: number, kd: number) {
+        this.logger = logger;
         this.kp = kp;
         this.ki = ki;
         this.kd = kd;
@@ -35,31 +39,31 @@ export default class PIDController {
      * @returns 
      */
     update(error: number): number {
-        console.log('@@@@ this.lastError: ', this.lastError);
+        this.logger.debug('PID previous error: ', this.lastError);
         const derivative = error - this.lastError;
-        console.log('@@@@ derivative: ', derivative);
+        this.logger.debug('PID derivative: ', derivative);
         const tempIntegral = this.integral + error;
-        console.log('@@@@ tempIntegral: ', tempIntegral);
+        this.logger.debug('PID tempIntegral: ', tempIntegral);
 
         const unclampedOutput = this.kp * error + this.ki * tempIntegral + this.kd * derivative;
-        console.log('@@@@ unclampedOutput: ', unclampedOutput);
+        this.logger.debug('PID unclampedOutput: ', unclampedOutput);
 
         // clamp the output
         const output = Math.max(this.outputMin, Math.min(this.outputMax, unclampedOutput));
-        console.log('@@@@ output: ', output);
+        this.logger.debug('PID output: ', output);
 
         // check if output is saturated and error is not improving
         const outputSaturatedHigh = output === this.outputMax && error > 0;
         const outputSaturatedLow = output === this.outputMin && error < 0;
-        console.log('@@@@ outputSaturatedHigh: ', outputSaturatedHigh);
-        console.log('@@@@ outputSaturatedLow: ', outputSaturatedLow);
+        this.logger.debug('PID outputSaturatedHigh: ', outputSaturatedHigh);
+        this.logger.debug('PID outputSaturatedLow: ', outputSaturatedLow);
 
         // only update integral if output is not saturated
         if (!outputSaturatedHigh && !outputSaturatedLow) {
             this.integral = tempIntegral;
         }
         this.lastError = error;
-        console.log('@@@@ this.integral: ', this.integral);
+        this.logger.debug('PID integral: ', this.integral);
 
         return output;
     }
