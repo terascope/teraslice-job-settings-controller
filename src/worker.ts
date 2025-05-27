@@ -1,19 +1,11 @@
-import { ESLikeClient as ES, Terafoundation as TF } from '@terascope/types';
+import { Terafoundation as TF } from '@terascope/types';
 import PIDController from './pid-controller.js';
-import { Config } from './interfaces.js';
+import { Client, Config } from './interfaces.js';
 
-// fixme remove  ??
 import * as fs from 'node:fs';
 
-interface Client {
-    get: (query: ES.GetParams, fullResponse?: boolean) => Promise<any>;
-    cat: {
-        indices: (params: ES.CatIndicesParams) => Promise<ES.CatIndicesResponse>;
-    }
-    update: (params: ES.UpdateParams) => Promise<ES.UpdateResponse>; 
-}
-
 export async function worker(context: TF.Context<Config>) {
+    const events = context.apis.foundation.getSystemEvents();
     const { logger } = context;
     const config = context.sysconfig.terasliceJobSettingsController;
     logger.info('Teraslice Job Settings Controller Config:\n', config);
@@ -145,7 +137,9 @@ export async function worker(context: TF.Context<Config>) {
         logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPct.toFixed(4)},${bytes}\n`);
     }
 
-    async function shutdown(): Promise<void> {
+    events.once('terafoundation:shutdown', () => {
+        logger.debug('received shutdown notice from terafoundation');
         clearInterval(updatePercentKeptInterval);
-    }
+        process.exit(0);
+    });
 }

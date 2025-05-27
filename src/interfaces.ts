@@ -1,3 +1,4 @@
+import { ESLikeClient as ES } from '@terascope/types';
 export interface Config {
     terasliceJobSettingsController: {
         connections: {
@@ -16,4 +17,12 @@ export interface Config {
         initial_percent_kept: number;
         pid_constants: [number, number, number];
     }
+}
+
+export interface Client {
+    get: (query: ES.GetParams, fullResponse?: boolean) => Promise<any>;
+    cat: {
+        indices: (params: ES.CatIndicesParams) => Promise<ES.CatIndicesResponse>;
+    }
+    update: (params: ES.UpdateParams) => Promise<ES.UpdateResponse>; 
 }
