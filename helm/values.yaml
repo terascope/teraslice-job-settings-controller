@@ -24,6 +24,8 @@ image:
 #   logging_connection: es-util
 
 terafoundation: 
+    workers: 1
+    log_level: trace
     connectors:
       elasticsearch-next:
         es7:
@@ -39,14 +41,15 @@ terasliceJobSettingsController:
       store:
         connector: es7
         index: percent-to-keep
-        document_id: noaa-2025-01-sample-v3
+        document_id: noaa-v6
       sample:
         connector: os2
-        index: noaa-2025-01-sample-v3
-    window_ms: 10000
-    target_rate: 0.1
+        dailyIndexPrefix: noaa-v6
+        date_delimiter: "."
+    window_ms: 60000
+    target_rate: 0.648
     initial_percent_kept: 75
-    pid_constants: [0.25, 0.01, 0.1]
+    pid_constants: [0.1, 0.01, 0.1]
     # The controller section of the config file.
 
 imagePullSecrets: []

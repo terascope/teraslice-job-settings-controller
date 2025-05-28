@@ -10,7 +10,6 @@ function configSchema() {
     return {};
 }
 
-
 await ClusterContext.createContext<Config>({
     name: 'terasliceJobSettingsController',
     worker,

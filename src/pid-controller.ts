@@ -8,8 +8,8 @@ export default class PIDController {
     private ki: number;
     private kd: number;
 
-    private integral: number = 0;
-    private lastError: number = 0;
+    private integral = 0;
+    private lastError = 0;
 
     /**
      * A simple Proportional–integral–derivative controller implementation
@@ -39,31 +39,35 @@ export default class PIDController {
      * @returns 
      */
     update(error: number): number {
-        this.logger.debug('PID previous error: ', this.lastError);
         const derivative = error - this.lastError;
-        this.logger.debug('PID derivative: ', derivative);
         const tempIntegral = this.integral + error;
-        this.logger.debug('PID tempIntegral: ', tempIntegral);
 
         const unclampedOutput = this.kp * error + this.ki * tempIntegral + this.kd * derivative;
-        this.logger.debug('PID unclampedOutput: ', unclampedOutput);
 
         // clamp the output
         const output = Math.max(this.outputMin, Math.min(this.outputMax, unclampedOutput));
-        this.logger.debug('PID output: ', output);
 
         // check if output is saturated and error is not improving
         const outputSaturatedHigh = output === this.outputMax && error > 0;
         const outputSaturatedLow = output === this.outputMin && error < 0;
-        this.logger.debug('PID outputSaturatedHigh: ', outputSaturatedHigh);
-        this.logger.debug('PID outputSaturatedLow: ', outputSaturatedLow);
 
         // only update integral if output is not saturated
         if (!outputSaturatedHigh && !outputSaturatedLow) {
             this.integral = tempIntegral;
         }
+        
+        this.logger.debug({
+            previousError: this.lastError,
+            derivative,
+            tempIntegral,
+            unclampedOutput,
+            output,
+            outputSaturatedHigh,
+            outputSaturatedLow,
+            integral: this.integral
+        })
+
         this.lastError = error;
-        this.logger.debug('PID integral: ', this.integral);
 
         return output;
     }

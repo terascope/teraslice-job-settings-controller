@@ -9,7 +9,8 @@ export interface Config {
             };
             sample: {
                 connector: string;
-                index: string;
+                dailyIndexPrefix: string;
+                date_delimiter: string;
             };
         }
         window_ms: number;
