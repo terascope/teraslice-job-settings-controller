@@ -51,7 +51,7 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /app/config
-            - name: controller-logs
+            - name: logs
               mountPath: /app/logs
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}

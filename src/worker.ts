@@ -152,6 +152,16 @@ export async function worker(context: TF.Context<Config>) {
     }
 
     /**
+     * @param { Date } date The Date object to be parsed
+     * @returns { string[] } Array containing the year, month, and day
+     */
+    function _parseDate(date: Date): string[] {
+        return date.toISOString()
+            .slice(0, 11)
+            .split(/[-T\s]/);
+    }
+
+    /**
      * Build the sample index string from the dailyIndexPrefix, delimiter, and system date
      * @returns { string } Current index to sample
      */
@@ -172,16 +182,6 @@ export async function worker(context: TF.Context<Config>) {
             resetIndexBytes();
         }
         return newIndex;
-    }
-
-    /**
-     * @param { Date } date The Date object to be parsed
-     * @returns { string[] } Array containing the year, month, and day
-     */
-    function _parseDate(date: Date): string[] {
-        return date.toISOString()
-            .slice(0, 11)
-            .split(/[-T\s]/);
     }
 
     /**
