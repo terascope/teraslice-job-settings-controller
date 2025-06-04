@@ -8,71 +8,67 @@ export async function worker(context: TF.Context<Config>) {
     const events = context.apis.foundation.getSystemEvents();
     const { logger } = context;
     const config = context.sysconfig.terasliceJobSettingsController;
-    logger.info('Teraslice Job Settings Controller Config:\n', config);
-
     const TARGET_RATE_BYTES_PER_SEC = config.target_rate * 1024 * 1024;
-    logger.debug('TARGET_RATE_BYTES_PER_SEC: ', TARGET_RATE_BYTES_PER_SEC);
-    const TARGET_BYTES_PER_WINDOW = TARGET_RATE_BYTES_PER_SEC
-    * (config.window_ms / 1000);
-    logger.info('TARGET_BYTES_PER_WINDOW: ', TARGET_BYTES_PER_WINDOW);
+    const TARGET_BYTES_PER_WINDOW = TARGET_RATE_BYTES_PER_SEC * (config.window_ms / 1000);
     const PERCENT_MIN = 0;
     const PERCENT_MAX = 1;
+
+    logger.info('Teraslice Job Settings Controller Config:\n', config);
+    logger.debug('TARGET_RATE_BYTES_PER_SEC: ', TARGET_RATE_BYTES_PER_SEC);
+    logger.info('TARGET_BYTES_PER_WINDOW: ', TARGET_BYTES_PER_WINDOW);
     
     let decimalPercentage = config.initial_percent_kept / 100;
     let indexBytes = 0;
     let retrievalErrorCount = 0;
     let retrievalFailed: boolean;
 
+    // PID controller setup
     const ADJUSTMENT_MIN = -0.25;
     const ADJUSTMENT_MAX = .25;
     const pid = new PIDController(logger, ADJUSTMENT_MIN, ADJUSTMENT_MAX, ...config.pid_constants);
 
+    // Elasticsearch client setup
     let sampleIndex = _buildSampleIndexString();
     let esClientSample: Client;
     let esClientStore: Client;
-
-    let logStream: fs.WriteStream;
-
-    // fixme don't overwrite logs
-    const logFilePath = '/app/logs/sample-log.csv';
-
-    try {
-        fs.writeFileSync(logFilePath, '')
-    } catch (err) {
-        logger.error('writeFileSync err: ', err);
-    }
-    try {
-        logStream = fs.createWriteStream(logFilePath);
-        logStream.write('timestamp,percentKept,errorPct,bytesThisWindow\n');
-    } catch (err) {
-        logger.error(`Failed to create log stream. Err: ${err}`);
-    }
-
     esClientSample = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: config.connections.sample.connector })).client;
     esClientStore = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: config.connections.store.connector })).client;
     
+    // Logging setup
+    let logStream: fs.WriteStream;
+    _setupLogs();
+    
+    // Set initial values
     indexBytes = await _getIndexSize();
     _updateStoreDocument(config.initial_percent_kept)
-    
+
+    /**
+     * Every window_ms, get the size of the sample index, calculate
+     * the change in size, then calculate a new percentage
+     */
     const updatePercentKeptInterval: NodeJS.Timeout = setInterval(async () => {
         sampleIndex = _updateSampleIndex();
-        logger.debug('sampleIndex: ', sampleIndex);
+        logger.debug('Sample Index: ', sampleIndex);
 
-        logger.debug('indexBytes previous interval: ', indexBytes);
+        logger.debug('Index bytes previous read: ', indexBytes);
         const newIndexBytes = await _getIndexSize();
-        logger.debug('newIndexBytes: ', newIndexBytes);
+        logger.debug('Index bytes this read: ', newIndexBytes);
 
         const bytesSinceLastRead = newIndexBytes - indexBytes;
-        logger.debug('bytesSinceLastRead: ', bytesSinceLastRead);
+        logger.debug('Difference in bytes since last read: ', bytesSinceLastRead);
         
         indexBytes = newIndexBytes;
 
+        // skip percentage calculation if index size could not be retrieved
         if (retrievalFailed) {
+            // count successive failures so we can properly calculate
+            // the errorBytes once retrieval is successful
             retrievalErrorCount++;
             logger.info('Unable to retrieve index size, skipping percentage update this window.');
             return;
         }
         decimalPercentage = _calculatePercentage(bytesSinceLastRead, decimalPercentage);
+        retrievalErrorCount = 0;
     }, config.window_ms);
 
     /**
@@ -112,15 +108,12 @@ export async function worker(context: TF.Context<Config>) {
      */
     function _calculatePercentage(bytesSinceLastRead: number, previousPercentage: number) {
         const windowsSinceLastUpdate = retrievalErrorCount + 1
-
-        const errorBytes = TARGET_BYTES_PER_WINDOW - (bytesSinceLastRead / windowsSinceLastUpdate); 
-
+        const averageBytesSinceLastUpdate = bytesSinceLastRead / windowsSinceLastUpdate;
+        const errorBytes = TARGET_BYTES_PER_WINDOW - averageBytesSinceLastUpdate; 
         const errorPct = errorBytes / TARGET_BYTES_PER_WINDOW;
-
         const adjustment = pid.update(errorPct);
-        logData(previousPercentage, errorPct, bytesSinceLastRead);
-
         const newPercentage = previousPercentage + adjustment;
+        logData(previousPercentage, errorPct, bytesSinceLastRead);
 
         // clamp percentKept between MIN and MAX
         const clampedPercentage = Math.max(PERCENT_MIN, Math.min(PERCENT_MAX, newPercentage));
@@ -142,12 +135,31 @@ export async function worker(context: TF.Context<Config>) {
         return clampedPercentage;
     }
 
-    function logData(percentage: number, errorPct: number, bytes: number) {
-        const timestamp = new Date().toISOString();
-        logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPct.toFixed(4)},${bytes}\n`);
+    function _setupLogs() {
+        // fixme don't overwrite logs
+        const logFilePath = '/app/logs/sample-log.csv';
+
+        try {
+            fs.writeFileSync(logFilePath, '')
+        } catch (err) {
+            logger.error('writeFileSync err: ', err);
+        }
+        try {
+            logStream = fs.createWriteStream(logFilePath);
+            logStream.write('timestamp,percentKept,errorPct,bytesThisWindow\n');
+        } catch (err) {
+            logger.error(`Failed to create log stream. Err: ${err}`);
+        }
     }
 
-    function resetIndexBytes() {
+    function logData(percentage: number, errorPct: number, bytes: number) {
+        if (logStream) {
+            const timestamp = new Date().toISOString();
+            logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPct.toFixed(4)},${bytes}\n`);
+        }
+    }
+
+    function _resetIndexBytes() {
         indexBytes = 0;
     }
 
@@ -179,7 +191,7 @@ export async function worker(context: TF.Context<Config>) {
     function _updateSampleIndex(): string {
         const newIndex = _buildSampleIndexString();
         if (newIndex !== sampleIndex) {
-            resetIndexBytes();
+            _resetIndexBytes();
         }
         return newIndex;
     }
