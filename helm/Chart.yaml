@@ -2,8 +2,8 @@ apiVersion: v2
 name: teraslice-job-settings-controller
 description: Application to monitor the size of an elasticsearch index
 type: application
-version: 0.0.1
-appVersion: "0.0.1"
+version: 0.0.3
+appVersion: "0.0.3"
 keywords:
   - teraslice-job-settings-controller
   - teraslice

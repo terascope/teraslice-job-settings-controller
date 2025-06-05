@@ -21,6 +21,8 @@ export async function worker(context: TF.Context<Config>) {
     let indexBytes = 0;
     let retrievalErrorCount = 0;
     let retrievalFailed: boolean;
+    let intervals = 0;
+    let deltaBytes: number;
 
     // PID controller setup
     const ADJUSTMENT_MIN = -0.25;
@@ -47,6 +49,7 @@ export async function worker(context: TF.Context<Config>) {
      * the change in size, then calculate a new percentage
      */
     const updatePercentKeptInterval: NodeJS.Timeout = setInterval(async () => {
+        intervals++;
         sampleIndex = _updateSampleIndex();
         logger.debug('Sample Index: ', sampleIndex);
 
@@ -62,7 +65,7 @@ export async function worker(context: TF.Context<Config>) {
         // skip percentage calculation if index size could not be retrieved
         if (retrievalFailed) {
             // count successive failures so we can properly calculate
-            // the errorBytes once retrieval is successful
+            // the error once retrieval is successful
             retrievalErrorCount++;
             logger.info('Unable to retrieve index size, skipping percentage update this window.');
             return;
@@ -107,21 +110,30 @@ export async function worker(context: TF.Context<Config>) {
      * @returns { number } Percentage of records to keep
      */
     function _calculatePercentage(bytesSinceLastRead: number, previousPercentage: number) {
+        const totalTimeSecs = intervals * config.window_ms / 1000;
+        const indexMB = indexBytes / (1024 * 1024);
+        const avgRateMBPerSec = indexMB / totalTimeSecs
+
         const windowsSinceLastUpdate = retrievalErrorCount + 1
         const averageBytesSinceLastUpdate = bytesSinceLastRead / windowsSinceLastUpdate;
-        const errorBytes = TARGET_BYTES_PER_WINDOW - averageBytesSinceLastUpdate; 
-        const errorPct = errorBytes / TARGET_BYTES_PER_WINDOW;
-        const adjustment = pid.update(errorPct);
-        const newPercentage = previousPercentage + adjustment;
-        logData(previousPercentage, errorPct, bytesSinceLastRead);
+        setDeltaBytes(averageBytesSinceLastUpdate);
+        logger.debug('deltaBytes: ', deltaBytes);
+
+        const errorBytesDelta = deltaBytes - TARGET_BYTES_PER_WINDOW; 
+        const errorPctDelta = errorBytesDelta / TARGET_BYTES_PER_WINDOW;
+        const adjustment = pid.update(errorPctDelta);
+        const newPercentage = previousPercentage - adjustment;
+        logData(previousPercentage, errorPctDelta, bytesSinceLastRead, deltaBytes, avgRateMBPerSec);
 
         // clamp percentKept between MIN and MAX
         const clampedPercentage = Math.max(PERCENT_MIN, Math.min(PERCENT_MAX, newPercentage));
 
         logger.debug({
+            totalTimeSecs,
+            avgRateMBPerSec,
             windowsSinceLastUpdate,
-            errorBytes,
-            errorPct,
+            errorBytesDelta,
+            errorPctDelta,
             adjustment,
             newPercentage,
             clampedPercentage
@@ -131,7 +143,7 @@ export async function worker(context: TF.Context<Config>) {
 
         _updateStoreDocument(percent);
 
-        logger.info(`[PID] Target: ${Math.round(TARGET_BYTES_PER_WINDOW)} bytes, Actual: ${bytesSinceLastRead} bytes, Sample Rate: ${percent.toFixed(3)} percent`);
+        logger.info(`Target: ${Math.round(TARGET_BYTES_PER_WINDOW)} bytes, Actual: ${bytesSinceLastRead} bytes, Delta: ${deltaBytes} bytes, Sample Rate: ${percent.toFixed(3)} percent`);
         return clampedPercentage;
     }
 
@@ -146,16 +158,16 @@ export async function worker(context: TF.Context<Config>) {
         }
         try {
             logStream = fs.createWriteStream(logFilePath);
-            logStream.write('timestamp,percentKept,errorPct,bytesThisWindow\n');
+            logStream.write('timestamp,percentKept,errorPctDelta,bytesThisWindow,deltaBytes,avgRateMBPerSec\n');
         } catch (err) {
             logger.error(`Failed to create log stream. Err: ${err}`);
         }
     }
 
-    function logData(percentage: number, errorPct: number, bytes: number) {
+    function logData(percentage: number, errorPctDelta: number, bytes: number, deltaBytes: number, avgRate: number) {
         if (logStream) {
             const timestamp = new Date().toISOString();
-            logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPct.toFixed(4)},${bytes}\n`);
+            logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPctDelta.toFixed(4)},${bytes},${deltaBytes.toFixed(4)},${avgRate.toFixed(4)}\n`);
         }
     }
 
@@ -217,6 +229,19 @@ export async function worker(context: TF.Context<Config>) {
             });
         } catch (err) {
             logger.warn(`Error updating document with id ${id}: ${err}`);
+        }
+    }
+
+    /**
+     * Calculates the exponential moving average change in index size
+     * @param newDelta change in index size since last read
+     * @param alpha Smoothing factor between 0 and 1. Controls how fast the average reacts.
+     */
+    function setDeltaBytes(newDelta: number, alpha = 0.2) {
+        if (!deltaBytes) {
+            deltaBytes = newDelta;
+        } else {
+            deltaBytes = alpha * newDelta + (1 - alpha) * deltaBytes;
         }
     }
 
