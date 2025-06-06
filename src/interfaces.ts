@@ -1,6 +1,8 @@
-import { ESLikeClient as ES } from '@terascope/types';
+import { ESLikeClient as ES, Terafoundation } from '@terascope/types';
+
 export interface Config {
     terasliceJobSettingsController: {
+        cluster: string;
         connections: {
             store: {
                 connector: string;
@@ -9,7 +11,7 @@ export interface Config {
             };
             sample: {
                 connector: string;
-                dailyIndexPrefix: string;
+                daily_index_prefix: string;
                 date_delimiter: string;
             };
         }
@@ -27,3 +29,5 @@ export interface Client {
     }
     update: (params: ES.UpdateParams) => Promise<ES.UpdateResponse>; 
 }
+
+export type Context = Terafoundation.Context<Config>;
