@@ -18,7 +18,7 @@ export interface Config {
         window_ms: number;
         target_rate: number;
         initial_percent_kept: number;
-        pid_constants: [number, number, number];
+        pid_constants: PIDConstants;
     }
 }
 
@@ -31,3 +31,9 @@ export interface Client {
 }
 
 export type Context = Terafoundation.Context<Config>;
+
+export interface PIDConstants {
+    proportional: number;
+    integral: number;
+    derivative: number;
+}

@@ -1,6 +1,6 @@
 import { Logger } from "@terascope/types";
 import { isPromAvailable } from "./helpers.js";
-import { Context } from "./interfaces.js";
+import { Context, PIDConstants } from "./interfaces.js";
 
 export default class PIDController {
     context: Context;
@@ -21,16 +21,14 @@ export default class PIDController {
      * @param {Context} context 
      * @param {number} min Minimum allowable output
      * @param {number} max Maximum allowable output
-     * @param {number} kp proportional constant
-     * @param {number} ki integral constant
-     * @param {number} kd derivative constant
+     * @param {object} pidConstants object containing proportional, integral and derivative constants
     */
-    constructor(context: Context, min: number, max: number, kp: number, ki: number, kd: number) {
+    constructor(context: Context, min: number, max: number, pidConstants: PIDConstants) {
         this.context = context;
         this.logger = context.logger;
-        this.kp = kp;
-        this.ki = ki;
-        this.kd = kd;
+        this.kp = pidConstants.proportional;
+        this.ki = pidConstants.integral;
+        this.kd = pidConstants.derivative;
         this.outputMin = min;
         this.outputMax = max;
     }

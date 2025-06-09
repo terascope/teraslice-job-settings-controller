@@ -30,7 +30,7 @@ export async function worker(context: Context) {
     // PID controller setup
     const ADJUSTMENT_MIN = -0.25;
     const ADJUSTMENT_MAX = .25;
-    const pid = new PIDController(context, ADJUSTMENT_MIN, ADJUSTMENT_MAX, ...controllerConfig.pid_constants);
+    const pid = new PIDController(context, ADJUSTMENT_MIN, ADJUSTMENT_MAX, controllerConfig.pid_constants);
     pid.initialize();
 
     // Elasticsearch client setup
