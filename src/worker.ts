@@ -24,6 +24,9 @@ export async function worker(context: Context) {
     let intervals = 0;
     let deltaBytes: number;
 
+    // prometheus metrics setup
+    await _setupPromMetrics();
+
     // PID controller setup
     const ADJUSTMENT_MIN = -0.25;
     const ADJUSTMENT_MAX = .25;
@@ -36,9 +39,6 @@ export async function worker(context: Context) {
     let esClientStore: Client;
     esClientSample = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: controllerConfig.connections.sample.connector })).client;
     esClientStore = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: controllerConfig.connections.store.connector })).client;
-    
-    // prometheus metrics setup
-    await _setupPromMetrics();
 
     // Logging setup
     let logStream: fs.WriteStream;
@@ -196,7 +196,7 @@ export async function worker(context: Context) {
     }
 
     /**
-     * Build the sample index string from the dailyIndexPrefix, delimiter, and system date
+     * Build the sample index string from the daily_index_prefix, delimiter, and system date
      * @returns { string } Current index to sample
      */
     function _buildSampleIndexString(): string {
