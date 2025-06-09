@@ -45,14 +45,14 @@ terasliceJobSettingsController:
     store:
       connector: es7
       index: percent-to-keep
-      document_id: noaa-v6
+      document_id: noaa-v1
     sample:
       connector: os2
-      dailyIndexPrefix: noaa-v6
+      daily_index_prefix: noaa-v1
       date_delimiter: "."
-  window_ms: 60000
-  target_rate: 0.648
-  initial_percent_kept: 75
+  window_ms: 300000
+  target_rate: 1
+  initial_percent_kept: 90
   pid_constants: [0.1, 0.01, 0.1]
 
 imagePullSecrets: []
