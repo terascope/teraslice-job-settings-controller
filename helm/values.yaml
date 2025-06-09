@@ -53,7 +53,7 @@ terasliceJobSettingsController:
   window_ms: 300000
   target_rate: 1
   initial_percent_kept: 90
-  pid_constants: [0.1, 0.01, 0.1]
+  pid_constants: { proportional: 0.1, integral: 0.01, derivative: 0.1 }
 
 imagePullSecrets: []
 nameOverride: ""

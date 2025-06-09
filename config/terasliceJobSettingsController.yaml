@@ -28,4 +28,4 @@ terasliceJobSettingsController:
   window_ms: 60000
   target_rate: 0.002219
   initial_percent_kept: 75
-  pid_constants: [0.25, 0.01, 0.1]
+  pid_constants: { proportional: 0.1, integral: 0.01, derivative: 0.1 }
