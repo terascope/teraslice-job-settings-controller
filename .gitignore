@@ -8,3 +8,5 @@
 .pnp.loader.mjs
 
 dist
+
+tsconfig.tsbuildinfo
