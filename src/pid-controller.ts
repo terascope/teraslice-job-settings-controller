@@ -1,6 +1,6 @@
 import { Logger } from "@terascope/types";
-import { isPromAvailable } from "./helpers";
-import { Context } from "./interfaces";
+import { isPromAvailable } from "./helpers.js";
+import { Context } from "./interfaces.js";
 
 export default class PIDController {
     context: Context;
