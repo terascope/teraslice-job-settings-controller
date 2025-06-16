@@ -115,8 +115,7 @@ export async function worker(context: Context) {
      */
     function _calculatePercentage(bytesSinceLastRead: number, previousPercentage: number) {
         const totalTimeSecs = intervals * controllerConfig.window_ms / 1000;
-        const indexMB = indexBytes / (1024 * 1024);
-        const avgRateMBPerSec = indexMB / totalTimeSecs
+        const avgRateBytesPerSec = indexBytes / totalTimeSecs
 
         const windowsSinceLastUpdate = retrievalErrorCount + 1
         const averageBytesSinceLastUpdate = bytesSinceLastRead / windowsSinceLastUpdate;
@@ -127,14 +126,14 @@ export async function worker(context: Context) {
         const errorPctDelta = errorBytesDelta / TARGET_BYTES_PER_WINDOW;
         const adjustment = pid.update(errorPctDelta);
         const newPercentage = previousPercentage - adjustment;
-        logData(previousPercentage, errorPctDelta, bytesSinceLastRead, deltaBytes, avgRateMBPerSec);
+        logData(previousPercentage, errorPctDelta, bytesSinceLastRead, deltaBytes, avgRateBytesPerSec);
 
         // clamp percentKept between MIN and MAX
         const clampedPercentage = Math.max(PERCENT_MIN, Math.min(PERCENT_MAX, newPercentage));
 
         logger.debug({
             totalTimeSecs,
-            avgRateMBPerSec,
+            avgRateBytesPerSec,
             windowsSinceLastUpdate,
             errorBytesDelta,
             errorPctDelta,
@@ -150,11 +149,11 @@ export async function worker(context: Context) {
         logger.info(`Target: ${Math.round(TARGET_BYTES_PER_WINDOW)} bytes, Actual: ${bytesSinceLastRead} bytes, Delta: ${deltaBytes} bytes, Sample Rate: ${percent.toFixed(3)} percent`);
         
         if (isPromAvailable(context)) {
-            context.apis.foundation.promMetrics.set('index_MB', {}, indexMB);
+            context.apis.foundation.promMetrics.set('index_bytes', {}, indexBytes);
             context.apis.foundation.promMetrics.set('bytes_per_window', {}, bytesSinceLastRead);
             context.apis.foundation.promMetrics.set('retrieval_error_count', {}, retrievalErrorCount);
             context.apis.foundation.promMetrics.set('percent', {}, percent);
-            context.apis.foundation.promMetrics.set('average_rate', {}, avgRateMBPerSec);
+            context.apis.foundation.promMetrics.set('average_rate', {}, avgRateBytesPerSec);
             context.apis.foundation.promMetrics.set('delta_bytes', {}, deltaBytes);
             context.apis.foundation.promMetrics.set('PID_controller_adjustment', {}, adjustment);
         }
@@ -172,7 +171,7 @@ export async function worker(context: Context) {
         }
         try {
             logStream = fs.createWriteStream(logFilePath);
-            logStream.write('timestamp,percentKept,errorPctDelta,bytesThisWindow,deltaBytes,avgRateMBPerSec\n');
+            logStream.write('timestamp,percentKept,errorPctDelta,bytesThisWindow,deltaBytes,avgRateBytesPerSec\n');
         } catch (err) {
             logger.error(`Failed to create log stream. Err: ${err}`);
         }
@@ -283,7 +282,7 @@ export async function worker(context: Context) {
             await context.apis.foundation.promMetrics.addGauge(
                 'controller_info',
                 'Information about Teraslice Job Settings Controller',
-                ['target_rate', 'window_ms', 'target_bytes_per_window', 'pid_constants', 'daily_index_prefix', 'date_delimiter']
+                ['target_rate_bytes_per_sec', 'window_ms', 'target_bytes_per_window', 'pid_constants', 'daily_index_prefix', 'date_delimiter']
             );
 
             await context.apis.foundation.promMetrics.addGauge(
@@ -293,8 +292,8 @@ export async function worker(context: Context) {
             );
 
             await context.apis.foundation.promMetrics.addGauge(
-                'index_MB',
-                'The most current measurement of the sample index size (in MB)',
+                'index_bytes',
+                'The most current measurement of the sample index size (in bytes)',
                 []
             );
 
@@ -318,7 +317,7 @@ export async function worker(context: Context) {
 
             await context.apis.foundation.promMetrics.addGauge(
                 'average_rate',
-                'Average rate of index growth (MB/sec)',
+                'Average rate of index growth (B/sec)',
                 []
             );
 
@@ -337,7 +336,7 @@ export async function worker(context: Context) {
             context.apis.foundation.promMetrics.set(
                 'controller_info',
                 {
-                    target_rate: controllerConfig.target_rate.toString(),
+                    target_rate_bytes_per_sec: TARGET_RATE_BYTES_PER_SEC.toString(),
                     window_ms: controllerConfig.window_ms.toString(),
                     target_bytes_per_window: TARGET_BYTES_PER_WINDOW.toString(),
                     pid_constants: controllerConfig.pid_constants.toString(),

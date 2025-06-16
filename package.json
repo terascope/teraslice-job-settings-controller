@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
+    "setup": "yarn && yarn run build --force",
     "start": "node service.js"
   },
   "dependencies": {
