@@ -10,7 +10,12 @@ terafoundation:
   environment: development
   log_level: debug
   workers: 1
+  prom_metrics_enabled: true
+  prom_metrics_port: 3333
+  prom_metrics_add_default: true
+  prom_metrics_display_url: ""
 terasliceJobSettingsController:
+  cluster: test1
   connections:
     store:
       connector: es7
@@ -18,8 +23,9 @@ terasliceJobSettingsController:
       document_id: noaa-2025-01-sample-baseline
     sample:
       connector: os2
-      index: noaa-2025-01-sample-baseline
+      daily_index_prefix: noaa-2025-01-sample-v1
+      date_delimiter: "."
   window_ms: 10000
   target_rate: 0.75
   initial_percent_kept: 75
-  pid_constants: [0.25, 0.01, 0.1]
+  pid_constants: { proportional: 0.1, integral: 0.01, derivative: 0.1 }

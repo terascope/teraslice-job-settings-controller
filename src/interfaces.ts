@@ -1,6 +1,8 @@
-import { ESLikeClient as ES } from '@terascope/types';
+import { ESLikeClient as ES, Terafoundation } from '@terascope/types';
+
 export interface Config {
     terasliceJobSettingsController: {
+        cluster: string;
         connections: {
             store: {
                 connector: string;
@@ -9,14 +11,14 @@ export interface Config {
             };
             sample: {
                 connector: string;
-                dailyIndexPrefix: string;
+                daily_index_prefix: string;
                 date_delimiter: string;
             };
         }
         window_ms: number;
         target_rate: number;
         initial_percent_kept: number;
-        pid_constants: [number, number, number];
+        pid_constants: PIDConstants;
     }
 }
 
@@ -26,4 +28,12 @@ export interface Client {
         indices: (params: ES.CatIndicesParams) => Promise<ES.CatIndicesResponse>;
     }
     update: (params: ES.UpdateParams) => Promise<ES.UpdateResponse>; 
+}
+
+export type Context = Terafoundation.Context<Config>;
+
+export interface PIDConstants {
+    proportional: number;
+    integral: number;
+    derivative: number;
 }

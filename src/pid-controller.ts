@@ -1,6 +1,9 @@
 import { Logger } from "@terascope/types";
+import { isPromAvailable } from "./helpers.js";
+import { Context, PIDConstants } from "./interfaces.js";
 
 export default class PIDController {
+    context: Context;
     logger: Logger;
     private outputMin: number;
     private outputMax: number;
@@ -14,20 +17,48 @@ export default class PIDController {
     /**
      * A simple Proportional–integral–derivative controller implementation
      * https://en.wikipedia.org/wiki/Proportional%E2%80%93integral%E2%80%93derivative_controller
-     * 
+     *
+     * @param {Context} context 
      * @param {number} min Minimum allowable output
      * @param {number} max Maximum allowable output
-     * @param {number} kp proportional constant
-     * @param {number} ki integral constant
-     * @param {number} kd derivative constant
+     * @param {object} pidConstants object containing proportional, integral and derivative constants
     */
-    constructor(logger: Logger, min: number, max: number, kp: number, ki: number, kd: number) {
-        this.logger = logger;
-        this.kp = kp;
-        this.ki = ki;
-        this.kd = kd;
+    constructor(context: Context, min: number, max: number, pidConstants: PIDConstants) {
+        this.context = context;
+        this.logger = context.logger;
+        this.kp = pidConstants.proportional;
+        this.ki = pidConstants.integral;
+        this.kd = pidConstants.derivative;
         this.outputMin = min;
         this.outputMax = max;
+    }
+
+    async initialize() {
+        if (isPromAvailable(this.context)) {
+            await this.context.apis.foundation.promMetrics.addGauge(
+                'proportional',
+                'Proportional error calculation',
+                ['class']
+            );
+
+            await this.context.apis.foundation.promMetrics.addGauge(
+                'integral',
+                'Integral error calculation',
+                ['class']
+            );
+
+            await this.context.apis.foundation.promMetrics.addGauge(
+                'derivative',
+                'Derivative error calculation',
+                ['class']
+            );
+
+            await this.context.apis.foundation.promMetrics.addGauge(
+                'unclamped_output',
+                'Output of the PID control function prior to clamping',
+                ['class']
+            );
+        }
     }
 
     /**
@@ -67,8 +98,38 @@ export default class PIDController {
             integral: this.integral
         })
 
+        this.setMetrics(error, this.integral, derivative, unclampedOutput);
+
         this.lastError = error;
 
         return output;
+    }
+
+    setMetrics(proportional: number, integral: number, derivative: number, unclampedOutput: number) {
+        if (isPromAvailable(this.context)) {
+            this.context.apis.foundation.promMetrics.set(
+                'proportional',
+                { class: 'PIDController'},
+                proportional
+            );
+
+            this.context.apis.foundation.promMetrics.set(
+                'integral',
+                { class: 'PIDController'},
+                integral
+            );
+
+            this.context.apis.foundation.promMetrics.set(
+                'derivative',
+                { class: 'PIDController'},
+                derivative
+            );
+
+            this.context.apis.foundation.promMetrics.set(
+                'unclamped_output',
+                { class: 'PIDController'},
+                unclampedOutput
+            );
+        }
     }
 }

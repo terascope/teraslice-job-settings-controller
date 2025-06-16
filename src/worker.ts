@@ -1,48 +1,52 @@
-import { Terafoundation as TF } from '@terascope/types';
 import PIDController from './pid-controller.js';
-import { Client, Config } from './interfaces.js';
+import { Client, Context } from './interfaces.js';
+import { isPromAvailable } from './helpers.js';
 
 import * as fs from 'node:fs';
 
-export async function worker(context: TF.Context<Config>) {
+export async function worker(context: Context) {
     const events = context.apis.foundation.getSystemEvents();
     const { logger } = context;
-    const config = context.sysconfig.terasliceJobSettingsController;
-    const TARGET_RATE_BYTES_PER_SEC = config.target_rate * 1024 * 1024;
-    const TARGET_BYTES_PER_WINDOW = TARGET_RATE_BYTES_PER_SEC * (config.window_ms / 1000);
+    const { _nodeName, terafoundation, terasliceJobSettingsController: controllerConfig } = context.sysconfig;
+    const TARGET_RATE_BYTES_PER_SEC = controllerConfig.target_rate * 1024 * 1024;
+    const TARGET_BYTES_PER_WINDOW = TARGET_RATE_BYTES_PER_SEC * (controllerConfig.window_ms / 1000);
     const PERCENT_MIN = 0;
     const PERCENT_MAX = 1;
 
-    logger.info('Teraslice Job Settings Controller Config:\n', config);
+    logger.info('Teraslice Job Settings Controller Config:\n', controllerConfig);
     logger.debug('TARGET_RATE_BYTES_PER_SEC: ', TARGET_RATE_BYTES_PER_SEC);
     logger.info('TARGET_BYTES_PER_WINDOW: ', TARGET_BYTES_PER_WINDOW);
     
-    let decimalPercentage = config.initial_percent_kept / 100;
+    let decimalPercentage = controllerConfig.initial_percent_kept / 100;
     let indexBytes = 0;
     let retrievalErrorCount = 0;
     let retrievalFailed: boolean;
     let intervals = 0;
     let deltaBytes: number;
 
+    // prometheus metrics setup
+    await _setupPromMetrics();
+
     // PID controller setup
     const ADJUSTMENT_MIN = -0.25;
     const ADJUSTMENT_MAX = .25;
-    const pid = new PIDController(logger, ADJUSTMENT_MIN, ADJUSTMENT_MAX, ...config.pid_constants);
+    const pid = new PIDController(context, ADJUSTMENT_MIN, ADJUSTMENT_MAX, controllerConfig.pid_constants);
+    pid.initialize();
 
     // Elasticsearch client setup
     let sampleIndex = _buildSampleIndexString();
     let esClientSample: Client;
     let esClientStore: Client;
-    esClientSample = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: config.connections.sample.connector })).client;
-    esClientStore = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: config.connections.store.connector })).client;
-    
+    esClientSample = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: controllerConfig.connections.sample.connector })).client;
+    esClientStore = (await context.apis.foundation.createClient({ type: 'elasticsearch-next', endpoint: controllerConfig.connections.store.connector })).client;
+
     // Logging setup
     let logStream: fs.WriteStream;
     _setupLogs();
     
     // Set initial values
     indexBytes = await _getIndexSize();
-    _updateStoreDocument(config.initial_percent_kept)
+    _updateStoreDocument(controllerConfig.initial_percent_kept)
 
     /**
      * Every window_ms, get the size of the sample index, calculate
@@ -72,7 +76,7 @@ export async function worker(context: TF.Context<Config>) {
         }
         decimalPercentage = _calculatePercentage(bytesSinceLastRead, decimalPercentage);
         retrievalErrorCount = 0;
-    }, config.window_ms);
+    }, controllerConfig.window_ms);
 
     /**
      * Get the size of the sample index, or return the previous
@@ -110,7 +114,7 @@ export async function worker(context: TF.Context<Config>) {
      * @returns { number } Percentage of records to keep
      */
     function _calculatePercentage(bytesSinceLastRead: number, previousPercentage: number) {
-        const totalTimeSecs = intervals * config.window_ms / 1000;
+        const totalTimeSecs = intervals * controllerConfig.window_ms / 1000;
         const indexMB = indexBytes / (1024 * 1024);
         const avgRateMBPerSec = indexMB / totalTimeSecs
 
@@ -144,6 +148,16 @@ export async function worker(context: TF.Context<Config>) {
         _updateStoreDocument(percent);
 
         logger.info(`Target: ${Math.round(TARGET_BYTES_PER_WINDOW)} bytes, Actual: ${bytesSinceLastRead} bytes, Delta: ${deltaBytes} bytes, Sample Rate: ${percent.toFixed(3)} percent`);
+        
+        if (isPromAvailable(context)) {
+            context.apis.foundation.promMetrics.set('index_MB', {}, indexMB);
+            context.apis.foundation.promMetrics.set('bytes_per_window', {}, bytesSinceLastRead);
+            context.apis.foundation.promMetrics.set('retrieval_error_count', {}, retrievalErrorCount);
+            context.apis.foundation.promMetrics.set('percent', {}, percent);
+            context.apis.foundation.promMetrics.set('average_rate', {}, avgRateMBPerSec);
+            context.apis.foundation.promMetrics.set('delta_bytes', {}, deltaBytes);
+            context.apis.foundation.promMetrics.set('PID_controller_adjustment', {}, adjustment);
+        }
         return clampedPercentage;
     }
 
@@ -167,12 +181,8 @@ export async function worker(context: TF.Context<Config>) {
     function logData(percentage: number, errorPctDelta: number, bytes: number, deltaBytes: number, avgRate: number) {
         if (logStream) {
             const timestamp = new Date().toISOString();
-            logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPctDelta.toFixed(4)},${bytes},${deltaBytes.toFixed(4)},${avgRate.toFixed(4)}\n`);
+            logStream.write(`${timestamp},${percentage.toFixed(4)},${errorPctDelta.toFixed(4)},${bytes},${deltaBytes},${avgRate.toFixed(4)}\n`);
         }
-    }
-
-    function _resetIndexBytes() {
-        indexBytes = 0;
     }
 
     /**
@@ -186,11 +196,11 @@ export async function worker(context: TF.Context<Config>) {
     }
 
     /**
-     * Build the sample index string from the dailyIndexPrefix, delimiter, and system date
+     * Build the sample index string from the daily_index_prefix, delimiter, and system date
      * @returns { string } Current index to sample
      */
     function _buildSampleIndexString(): string {
-        const { dailyIndexPrefix: pre, date_delimiter: del } = config.connections.sample;
+        const { daily_index_prefix: pre, date_delimiter: del } = controllerConfig.connections.sample;
         const [year, month, day] = _parseDate(new Date());
         return `${pre}-${year}${del}${month}${del}${day}`;
     }
@@ -203,7 +213,11 @@ export async function worker(context: TF.Context<Config>) {
     function _updateSampleIndex(): string {
         const newIndex = _buildSampleIndexString();
         if (newIndex !== sampleIndex) {
-            _resetIndexBytes();
+            indexBytes = 0;
+            intervals = 0;
+        }
+        if (isPromAvailable(context)) {
+            context.apis.foundation.promMetrics.set('sample_index', { sample_index: newIndex }, 1);
         }
         return newIndex;
     }
@@ -213,7 +227,7 @@ export async function worker(context: TF.Context<Config>) {
      * @param percent New calculated percent to store
      */
     function _updateStoreDocument(percent: number) {
-        const { document_id: id, index } = config.connections.store;
+        const { document_id: id, index } = controllerConfig.connections.store;
         try{
             esClientStore.update({
                 id,
@@ -241,7 +255,97 @@ export async function worker(context: TF.Context<Config>) {
         if (!deltaBytes) {
             deltaBytes = newDelta;
         } else {
-            deltaBytes = alpha * newDelta + (1 - alpha) * deltaBytes;
+            deltaBytes = Math.round(alpha * newDelta + (1 - alpha) * deltaBytes);
+        }
+    }
+
+    async function _setupPromMetrics() {
+        const nodeName = _nodeName.split('.');
+        const workerId = nodeName.pop();
+        await context.apis.foundation.promMetrics.init({
+            terasliceName: controllerConfig.cluster,
+            tf_prom_metrics_add_default: terafoundation.prom_metrics_add_default,
+            tf_prom_metrics_enabled: terafoundation.prom_metrics_enabled,
+            tf_prom_metrics_port: terafoundation.prom_metrics_port,
+            logger,
+            assignment: 'worker',
+            prefix: 'teraslice_job_settings_controller_',
+            prom_metrics_display_url: terafoundation.prom_metrics_display_url,
+            labels: {
+                cluster: controllerConfig.cluster,
+                service: 'teraslice_job_settings_controller',
+                node: _nodeName,
+                worker: workerId ?? '',
+            }
+        });
+
+        if (isPromAvailable(context)) {
+            await context.apis.foundation.promMetrics.addGauge(
+                'controller_info',
+                'Information about Teraslice Job Settings Controller',
+                ['target_rate', 'window_ms', 'target_bytes_per_window', 'pid_constants', 'daily_index_prefix', 'date_delimiter']
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'sample_index',
+                'The current daily index being tracked for index size',
+                ['sample_index']
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'index_MB',
+                'The most current measurement of the sample index size (in MB)',
+                []
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'bytes_per_window',
+                'The change in index size between windows (in bytes)',
+                []
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'retrieval_error_count',
+                'Number of consecutive failed attempts to retrieve the sample index size',
+                []
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'percent',
+                'Current percent of records to sample',
+                []
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'average_rate',
+                'Average rate of index growth (MB/sec)',
+                []
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'delta_bytes',
+                'The exponential moving average of bytes_per_window',
+                []
+            );
+
+            await context.apis.foundation.promMetrics.addGauge(
+                'PID_controller_adjustment',
+                'Adjustment to the percent calculated by the PID controller',
+                []
+            );
+
+            context.apis.foundation.promMetrics.set(
+                'controller_info',
+                {
+                    target_rate: controllerConfig.target_rate.toString(),
+                    window_ms: controllerConfig.window_ms.toString(),
+                    target_bytes_per_window: TARGET_BYTES_PER_WINDOW.toString(),
+                    pid_constants: controllerConfig.pid_constants.toString(),
+                    daily_index_prefix: controllerConfig.connections.sample.daily_index_prefix,
+                    date_delimiter: controllerConfig.connections.sample.date_delimiter
+                },
+                1
+            );
         }
     }
 

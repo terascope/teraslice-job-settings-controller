@@ -24,33 +24,36 @@ image:
 #   logging_connection: es-util
 
 terafoundation: 
-    workers: 1
-    log_level: trace
-    connectors:
-      elasticsearch-next:
-        es7:
-          node:
-            - "http://elasticsearch7-master:9200"
-        os2:
-          node:
-            - "http://opensearch2:9200"
-    # The terafoundation section of the config file.
+  workers: 1
+  log_level: trace
+  prom_metrics_enabled: true
+  prom_metrics_port: 3333
+  prom_metrics_add_default: true
+  prom_metrics_display_url: ""
+  connectors:
+    elasticsearch-next:
+      es7:
+        node:
+          - "http://elasticsearch7-master:9200"
+      os2:
+        node:
+          - "http://opensearch2:9200"
 
-terasliceJobSettingsController: 
-    connections:
-      store:
-        connector: es7
-        index: percent-to-keep
-        document_id: noaa-v6
-      sample:
-        connector: os2
-        dailyIndexPrefix: noaa-v6
-        date_delimiter: "."
-    window_ms: 60000
-    target_rate: 0.648
-    initial_percent_kept: 75
-    pid_constants: [0.1, 0.01, 0.1]
-    # The controller section of the config file.
+terasliceJobSettingsController:
+  cluster: test1
+  connections:
+    store:
+      connector: es7
+      index: percent-to-keep
+      document_id: noaa-v1
+    sample:
+      connector: os2
+      daily_index_prefix: noaa-v1
+      date_delimiter: "."
+  window_ms: 300000
+  target_rate: 1
+  initial_percent_kept: 90
+  pid_constants: { proportional: 0.1, integral: 0.01, derivative: 0.1 }
 
 imagePullSecrets: []
 nameOverride: ""
