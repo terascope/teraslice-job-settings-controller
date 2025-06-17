@@ -1,5 +1,5 @@
 import { isNumber } from '@terascope/job-components';
-import { delimiter } from 'path';
+import { Config } from '../interfaces.js';
 
 /**
  * This schema object is for the TerasliceJobSettingsController configuration settings coming from
@@ -24,11 +24,20 @@ export const schema = {
             }
         }
     },
+    minimum_percent: {
+        doc: 'Minimum value the percent field can be set to',
+        default: null,
+        format: (val: any) => {
+            if (!isNumber(val) || val < 0 || val > 100) {
+                throw new Error('minimum_percent must be a number between 0 and 100 (inclusive).');
+            }
+        }
+    },
     initial_percent_kept: {
         doc: 'Value of the percent field at controller creation.',
         default: null,
         format: (val: any) => {
-            if (!isNumber(val) || val < 0 || val > 100) {
+            if (!isNumber(val) || val < 1 || val > 100) {
                 throw new Error('initial_percent_kept must be a number between 1 and 100 (inclusive).');
             }
         }
@@ -95,6 +104,14 @@ export const schema = {
 
 export function configSchema() {
     return {
-        schema: { terasliceJobSettingsController: schema }
+        schema: { terasliceJobSettingsController: schema },
+        validatorFn: (
+            config: Config
+        ) => {
+            const { initial_percent_kept, minimum_percent } = config;
+            if (initial_percent_kept < minimum_percent) {
+                throw new Error('initial_percent_kept must be greater than or equal to minimum_percent.');
+            }
+        }
     }
 }

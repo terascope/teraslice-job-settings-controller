@@ -10,7 +10,7 @@ export async function worker(context: Context) {
     const { _nodeName, terafoundation, terasliceJobSettingsController: controllerConfig } = context.sysconfig;
     const TARGET_RATE_BYTES_PER_SEC = controllerConfig.target_rate * 1024 * 1024;
     const TARGET_BYTES_PER_WINDOW = TARGET_RATE_BYTES_PER_SEC * (controllerConfig.window_ms / 1000);
-    const PERCENT_MIN = 0;
+    const PERCENT_MIN = controllerConfig.minimum_percent / 100;
     const PERCENT_MAX = 1;
 
     logger.info('Teraslice Job Settings Controller Config:\n', controllerConfig);

@@ -27,5 +27,7 @@ terasliceJobSettingsController:
       date_delimiter: "."
   window_ms: 60000
   target_rate: 0.002219
+  minimum_percent: 25
   initial_percent_kept: 75
   pid_constants: { proportional: 0.1, integral: 0.01, derivative: 0.1 }
+  
