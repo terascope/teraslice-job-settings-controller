@@ -1,4 +1,4 @@
-name: Build and Push Docker Image on Release
+name: Build and Push Docker Image and Helm Chart on Release
 
 on:
   release:
@@ -7,6 +7,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: terascope/tjsc
+  CHART_NAME: terascope/tjsc-chart
 
 jobs:
   build-and-push:
@@ -42,3 +43,30 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Update Helm chart version
+        run: |
+          # Extract version from release tag (remove 'v' prefix if present)
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          
+          # Update Chart.yaml with release version
+          sed -i "s/^version:.*/version: $VERSION/" helm/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" helm/Chart.yaml
+
+      - name: Package and push Helm chart
+        run: |
+          # Extract version from release tag
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          
+          # Package the chart
+          helm package helm/
+          
+          # Push to OCI registry
+          helm push teraslice-job-settings-controller-$VERSION.tgz oci://${{ env.REGISTRY }}/${{ env.CHART_NAME }}

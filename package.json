@@ -1,6 +1,6 @@
 {
   "name": "teraslice-job-settings-controller",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "type": "module",
   "description": "Application to monitor the size of an elasticsearch index",
   "main": "service.js",
