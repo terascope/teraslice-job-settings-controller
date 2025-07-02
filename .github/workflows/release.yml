@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: tjsc
+  IMAGE_NAME: terascope/tjsc
 
 jobs:
   build-and-push:
