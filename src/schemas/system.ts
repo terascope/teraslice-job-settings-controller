@@ -64,6 +64,11 @@ export const schema = {
         default: null,
         format: String
     },
+    enable_csv_logging: {
+        doc: 'Enable logging of metrics to a CSV file',
+        default: false,
+        format: Boolean
+    },
     connections: {
         store: {
             connector: {
