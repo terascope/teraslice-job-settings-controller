@@ -55,6 +55,7 @@ terasliceJobSettingsController:
   minimum_percent: 50
   initial_percent_kept: 90
   pid_constants: { proportional: 0.1, integral: 0.01, derivative: 0.1 }
+  enable_csv_logging: false
 
 imagePullSecrets: []
 nameOverride: ""
