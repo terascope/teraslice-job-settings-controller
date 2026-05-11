@@ -19,6 +19,7 @@ export interface Config {
     initial_percent_kept: number;
     minimum_percent: number;
     pid_constants: PIDConstants;
+    enable_csv_logging: boolean;
 }
 
 export interface ControllerConfig {
@@ -30,7 +31,7 @@ export interface Client {
     cat: {
         indices: (params: ES.CatIndicesParams) => Promise<ES.CatIndicesResponse>;
     }
-    update: (params: ES.UpdateParams) => Promise<ES.UpdateResponse>; 
+    update: (params: ES.UpdateParams) => Promise<ES.UpdateResponse>;
 }
 
 export type Context = Terafoundation.Context<ControllerConfig>;

@@ -16,7 +16,7 @@ export async function worker(context: Context) {
     logger.info('Teraslice Job Settings Controller Config:\n', controllerConfig);
     logger.debug('TARGET_RATE_BYTES_PER_SEC: ', TARGET_RATE_BYTES_PER_SEC);
     logger.info('TARGET_BYTES_PER_WINDOW: ', TARGET_BYTES_PER_WINDOW);
-    
+
     let decimalPercentage = controllerConfig.initial_percent_kept / 100;
     let indexBytes = 0;
     let retrievalErrorCount = 0;
@@ -42,8 +42,10 @@ export async function worker(context: Context) {
 
     // Logging setup
     let logStream: fs.WriteStream;
-    _setupLogs();
-    
+    if (controllerConfig.enable_csv_logging) {
+        _setupLogs();
+    }
+
     // Set initial values
     indexBytes = await _getIndexSize();
     _updateStoreDocument(controllerConfig.initial_percent_kept)
@@ -63,7 +65,7 @@ export async function worker(context: Context) {
 
         const bytesSinceLastRead = newIndexBytes - indexBytes;
         logger.debug('Difference in bytes since last read: ', bytesSinceLastRead);
-        
+
         indexBytes = newIndexBytes;
 
         // skip percentage calculation if index size could not be retrieved
@@ -106,9 +108,9 @@ export async function worker(context: Context) {
     }
 
     /**
-     * Calculate the percentage of records to keep during the next window 
+     * Calculate the percentage of records to keep during the next window
      * @param { number } bytesSinceLastRead number of bytes added to the index since the
-     *                                      last successful read 
+     *                                      last successful read
      * @param { number } previousPercentage the percentage calculated from the previous
      *                                      window or the initial percentage
      * @returns { number } Percentage of records to keep
@@ -122,7 +124,7 @@ export async function worker(context: Context) {
         setDeltaBytes(averageBytesSinceLastUpdate);
         logger.debug('deltaBytes: ', deltaBytes);
 
-        const errorBytesDelta = deltaBytes - TARGET_BYTES_PER_WINDOW; 
+        const errorBytesDelta = deltaBytes - TARGET_BYTES_PER_WINDOW;
         const errorPctDelta = errorBytesDelta / TARGET_BYTES_PER_WINDOW;
         const adjustment = pid.update(errorPctDelta);
         const newPercentage = previousPercentage - adjustment;
@@ -147,7 +149,7 @@ export async function worker(context: Context) {
         _updateStoreDocument(percent);
 
         logger.info(`Target: ${Math.round(TARGET_BYTES_PER_WINDOW)} bytes, Actual: ${bytesSinceLastRead} bytes, Delta: ${deltaBytes} bytes, Sample Rate: ${percent.toFixed(3)} percent`);
-        
+
         if (isPromAvailable(context)) {
             context.apis.foundation.promMetrics.set('index_bytes', {}, indexBytes);
             context.apis.foundation.promMetrics.set('bytes_per_window', {}, bytesSinceLastRead);
