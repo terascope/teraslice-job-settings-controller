@@ -1,6 +1,5 @@
 {
-    "typescript.tsdk": ".yarn/sdks/typescript/lib",
-    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "js/ts.tsdk.promptToUseWorkspaceVersion": true,
     "cSpell.words": [
       "nindent"
     ]

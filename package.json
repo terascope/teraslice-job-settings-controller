@@ -8,27 +8,22 @@
   "scripts": {
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
-    "setup": "yarn && yarn run build --force",
+    "setup": "pnpm install && pnpm build --force",
     "start": "node service.js"
   },
   "dependencies": {
-    "@terascope/job-components": "~1.10.1",
-    "terafoundation": "~1.12.2",
+    "@terascope/core-utils": "~2.11.0",
+    "terafoundation": "~2.13.0",
     "ts-pegjs": "~4.2.1"
   },
   "devDependencies": {
-    "@terascope/types": "~1.4.1",
-    "@types/node": "~22.15.17",
+    "@terascope/types": "~2.11.0",
+    "@types/node": "~25.9.0",
     "typescript": "~5.8.3"
   },
-  "packageManager": "yarn@4.5.3",
+  "packageManager": "pnpm@11.3.0",
   "engines": {
-    "node": ">=20.11.1",
-    "yarn": ">=1.22.22"
-  },
-  "dependenciesMeta": {
-    "ts-pegjs@4.2.1": {
-      "unplugged": true
-    }
+    "node": ">=22.0.0",
+    "pnpm": ">=11.3.0"
   }
 }

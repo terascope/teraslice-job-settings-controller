@@ -1,6 +1,6 @@
-# Teraslice Job Setting Controller
+# Teraslice Job Settings Controller
 
-The Teraslice Job Setting Controller(TJSC) is designed to continuously modify
+The Teraslice Job Settings Controller(TJSC) is designed to continuously modify
 the `percent` field of an Elasticsearch record. This record is used within a
 [Teraslice](https://github.com/terascope/teraslice) job by the
 [sample_exact_es_percent](https://github.com/terascope/standard-assets/blob/master/docs/asset/operations/sample_exact_es_percent.md)

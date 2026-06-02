@@ -1,0 +1,12 @@
+allowBuilds:
+  dtrace-provider: true
+
+blockExoticSubdeps: true
+
+minimumReleaseAge: 1440 # 1 day
+
+minimumReleaseAgeExclude:
+  - '@terascope/*'
+  - terafoundation
+
+trustPolicy: no-downgrade
