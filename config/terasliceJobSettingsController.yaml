@@ -3,7 +3,7 @@ terafoundation:
     elasticsearch-next:
       os1:
         node:
-          - "http://opensearch1-master:9200"
+          - "http://opensearch1:9200"
       os2:
         node:
           - "http://opensearch2:9200"
