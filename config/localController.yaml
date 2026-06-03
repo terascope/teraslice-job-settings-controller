@@ -1,9 +1,9 @@
 terafoundation:
   connectors:
     elasticsearch-next:
-      es7:
+      os1:
         node:
-          - "http://localhost:9200"
+          - "http://localhost:9210"
       os2:
         node:
           - "http://localhost:9220"
@@ -18,7 +18,7 @@ terasliceJobSettingsController:
   cluster: test1
   connections:
     store:
-      connector: es7
+      connector: os1
       index: percent-to-keep
       document_id: noaa-2025-01-sample-baseline
     sample:

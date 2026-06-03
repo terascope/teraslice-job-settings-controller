@@ -32,9 +32,9 @@ terafoundation:
   prom_metrics_display_url: ""
   connectors:
     elasticsearch-next:
-      es7:
+      os1:
         node:
-          - "http://elasticsearch7-master:9200"
+          - "http://opensearch1:9200"
       os2:
         node:
           - "http://opensearch2:9200"
@@ -43,7 +43,7 @@ terasliceJobSettingsController:
   cluster: test1
   connections:
     store:
-      connector: es7
+      connector: os1
       index: percent-to-keep
       document_id: noaa-v1
     sample:

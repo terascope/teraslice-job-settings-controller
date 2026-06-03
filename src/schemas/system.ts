@@ -1,4 +1,4 @@
-import { isNumber } from '@terascope/job-components';
+import { isNumber } from '@terascope/core-utils';
 import { Config } from '../interfaces.js';
 
 /**
@@ -74,29 +74,29 @@ export const schema = {
             connector: {
                 doc: 'name of the terafoundation connector where the percent will be stored',
                 default: null,
-                format: 'required_String'
+                format: 'required_string'
             },
             index: {
                 doc: 'name of the index where the percent will be stored',
                 default: null,
-                format: 'required_String'
+                format: 'required_string'
             },
             document_id: {
                 doc: 'name of the document ID where the percent will be stored',
                 default: null,
-                format: 'required_String'
+                format: 'required_string'
             }
         },
         sample: {
             connector: {
                 doc: 'name of the terafoundation connector where index to sample is located',
                 default: null,
-                format: 'required_String'
+                format: 'required_string'
             },
             daily_index_prefix: {
                 doc: 'prefix of the daily index to sample. This will match the index field of the elasticsearch_sender_api config in the teraslice job writing to the index.',
                 default: null,
-                format: 'required_String'
+                format: 'required_string'
             },
             date_delimiter: {
                 doc: 'delimiter between date fields for the daily index. This will match the date_delimiter field of the date_router config in the teraslice job writing to the index.',
